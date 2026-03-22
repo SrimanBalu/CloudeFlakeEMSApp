@@ -4,53 +4,80 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import EmployeeManagement from './pages/EmployeeManagement';
 import Navbar from './components/Navbar';
+import AdminRoute from './components/AdminRoute';
+import { authAPI } from './services/api';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isAuth, setIsAuth] = useState(false);
 
   useEffect(() => {
-    // Check if user is logged in (check localStorage)
-    const user = localStorage.getItem('user');
-    if (user) {
-      setIsAuthenticated(true);
-    }
+    // Check if user is logged in
+    const token = localStorage.getItem('authToken');
+    setIsAuth(!!token);
     setLoading(false);
   }, []);
 
-  const handleLogin = (username) => {
-    setIsAuthenticated(true);
-    localStorage.setItem('user', username);
-  };
+  useEffect(() => {
+    // Listen for storage changes to detect login/logout from other tabs or components
+    const handleStorageChange = () => {
+      const token = localStorage.getItem('authToken');
+      setIsAuth(!!token);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('user');
+    authAPI.logout();
+    setIsAuth(false);
+  };
+
+  const handleLogin = () => {
+    setIsAuth(true);
   };
 
   if (loading) {
-    return <div className="spinner"><div className="spinner-border"></div></div>;
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
   }
 
   return (
     <Router>
-      {isAuthenticated && <Navbar onLogout={handleLogout} />}
+      {isAuth && <Navbar onLogout={handleLogout} />}
       <Routes>
+        {/* Login Route */}
         <Route 
           path="/login" 
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} 
+          element={isAuth ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} 
         />
+
+        {/* Dashboard Route - All authenticated users */}
         <Route 
           path="/dashboard" 
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} 
+          element={isAuth ? <Dashboard /> : <Navigate to="/login" />} 
         />
+
+        {/* Employees Route - Admin only */}
         <Route 
           path="/employees" 
-          element={isAuthenticated ? <EmployeeManagement /> : <Navigate to="/login" />} 
+          element={
+            <AdminRoute>
+              <EmployeeManagement />
+            </AdminRoute>
+          } 
         />
+
+        {/* Home Route */}
         <Route 
           path="/" 
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} 
+          element={isAuth ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} 
         />
       </Routes>
     </Router>

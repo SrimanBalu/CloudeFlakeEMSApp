@@ -10,11 +10,68 @@ const apiClient = axios.create({
   },
 });
 
+// Auth APIs
+export const authAPI = {
+  // Login with email and password
+  login: (email, password) => {
+    return apiClient.post('/Auth/login', {
+      email,
+      password,
+    });
+  },
+
+  // Logout
+  logout: () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+  },
+
+  // Get stored token
+  getToken: () => {
+    return localStorage.getItem('authToken');
+  },
+
+  // Set token after login
+  setToken: (token) => {
+    localStorage.setItem('authToken', token);
+    // Add token to axios headers for future requests
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  },
+
+  // Store user info
+  setUser: (user) => {
+    localStorage.setItem('user', JSON.stringify(user));
+  },
+
+  // Get stored user info
+  getUser: () => {
+    try {
+      const user = localStorage.getItem('user');
+      if (!user) return null;
+      return JSON.parse(user);
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      localStorage.removeItem('user');
+      return null;
+    }
+  },
+
+  // Check if user is authenticated
+  isAuthenticated: () => {
+    return !!localStorage.getItem('authToken');
+  },
+};
+
 // Employee APIs
 export const employeeAPI = {
   // Get all employees
   getAllEmployees: () => {
     return apiClient.get('/Employees');
+  },
+
+  // Get all roles
+  getRoles: () => {
+    return apiClient.get('/roles');
   },
 
   // Get employee by ID
@@ -37,7 +94,7 @@ export const employeeAPI = {
     return apiClient.delete(`/employees/${id}`);
   },
 
-  // Search employees (if backend supports it)
+  // Search employees
   searchEmployees: (query) => {
     return apiClient.get(`/employees/search?q=${query}`);
   },
