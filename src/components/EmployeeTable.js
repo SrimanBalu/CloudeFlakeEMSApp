@@ -7,10 +7,30 @@ function EmployeeTable({ employees, onEdit, onDelete, isLoading, error, onStatus
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const [nameSortOrder, setNameSortOrder] = useState('asc');
 
   const handleDeleteClick = (employee) => {
     setEmployeeToDelete(employee);
     setShowDeleteModal(true);
+  };
+
+  const handleNameSort = () => {
+    setNameSortOrder(nameSortOrder === 'asc' ? 'desc' : 'asc');
+  };
+
+  const getSortedEmployees = () => {
+    if (!employees) return [];
+    const sorted = [...employees];
+    sorted.sort((a, b) => {
+      const nameA = a.name.toLowerCase();
+      const nameB = b.name.toLowerCase();
+      if (nameSortOrder === 'asc') {
+        return nameA.localeCompare(nameB);
+      } else {
+        return nameB.localeCompare(nameA);
+      }
+    });
+    return sorted;
   };
 
   const handleConfirmDelete = () => {
@@ -97,7 +117,19 @@ function EmployeeTable({ employees, onEdit, onDelete, isLoading, error, onStatus
         <thead>
           <tr style={{ background: '#f9fafb' }}>
             <th style={{ width: '60px' }}>S/No</th>
-            <th>Name</th>
+            <th 
+              onClick={handleNameSort}
+              style={{ 
+                cursor: 'pointer',
+                userSelect: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              title="Click to sort by name"
+            >
+              Name {nameSortOrder === 'asc' ? '↑' : '↓'}
+            </th>
             <th>Age</th>
             <th>Department</th>
             <th>Role</th>
@@ -108,7 +140,7 @@ function EmployeeTable({ employees, onEdit, onDelete, isLoading, error, onStatus
           </tr>
         </thead>
         <tbody>
-          {employees.map((employee, index) => (
+          {getSortedEmployees().map((employee, index) => (
             <tr key={employee.id} style={{ alignItems: 'center' }}>
               <td style={{ fontWeight: '600', color: '#6366f1', textAlign: 'center' }}>
                 {index + 1}
