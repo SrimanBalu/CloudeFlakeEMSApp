@@ -1,23 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Alert, Row, Col, InputGroup, Form } from 'react-bootstrap';
+import { Container, Alert, Row, Col, InputGroup, Form, Modal, Button } from 'react-bootstrap';
 import EmployeeForm from '../components/EmployeeForm';
 import EmployeeTable from '../components/EmployeeTable';
 import { employeeAPI, handleApiError } from '../services/api';
-import { FiSearch, FiX, FiUsers, FiInfo, FiTrendingUp } from 'react-icons/fi';
+import { FiSearch, FiX, FiUsers, FiInfo, FiTrendingUp, FiPlus } from 'react-icons/fi';
 
 function EmployeeManagement() {
   const [employees, setEmployees] = useState([]);
   const [filteredEmployees, setFilteredEmployees] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isTableLoading, setIsTableLoading] = useState(true);
+  const [isRolesLoading, setIsRolesLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [tableError, setTableError] = useState('');
+  const [showFormModal, setShowFormModal] = useState(false);
 
-  // Fetch all employees on mount
+  // Fetch roles and employees on mount
   useEffect(() => {
+    fetchRoles();
     fetchEmployees();
   }, []);
 
@@ -30,7 +34,11 @@ function EmployeeManagement() {
       const filtered = employees.filter(
         (employee) =>
           employee.name.toLowerCase().includes(term) ||
-          employee.email.toLowerCase().includes(term)
+          employee.email.toLowerCase().includes(term) ||
+          (employee.roleName && employee.roleName.toLowerCase().includes(term)) ||
+          (employee.department && employee.department.toLowerCase().includes(term)) ||
+          (employee.phone && employee.phone.includes(term)) ||
+          (employee.age && employee.age.toString().includes(term))
       );
       setFilteredEmployees(filtered);
     }
@@ -60,6 +68,31 @@ function EmployeeManagement() {
       console.error('Error fetching employees:', error);
     } finally {
       setIsTableLoading(false);
+    }
+  };
+
+  const fetchRoles = async () => {
+    setIsRolesLoading(true);
+    try {
+      const response = await employeeAPI.getRoles();
+      // Handle different response formats
+      let rolesData = [];
+      if (Array.isArray(response.data)) {
+        rolesData = response.data;
+      } else if (response.data?.value && Array.isArray(response.data.value)) {
+        rolesData = response.data.value;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        rolesData = response.data.data;
+      } else if (response.data?.roles && Array.isArray(response.data.roles)) {
+        rolesData = response.data.roles;
+      }
+      setRoles(rolesData);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      // Don't show error to user as roles might be optional
+      setRoles([]);
+    } finally {
+      setIsRolesLoading(false);
     }
   };
 
@@ -94,15 +127,6 @@ function EmployeeManagement() {
     }
   };
 
-  const handleEditEmployee = (employee) => {
-    setSelectedEmployee(employee);
-    // Scroll to form
-    const formElement = document.getElementById('employee-form');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   const handleDeleteEmployee = async (id) => {
     setIsLoading(true);
     setErrorMessage('');
@@ -123,13 +147,29 @@ function EmployeeManagement() {
 
   const handleCancelEdit = () => {
     setSelectedEmployee(null);
+    setShowFormModal(false);
+  };
+
+  const handleOpenCreateModal = () => {
+    setSelectedEmployee(null);
+    setShowFormModal(true);
+  };
+
+  const handleOpenEditModal = (employee) => {
+    setSelectedEmployee(employee);
+    setShowFormModal(true);
+  };
+
+  const handleFormSubmitModal = async (formData) => {
+    await handleFormSubmit(formData);
+    setShowFormModal(false);
   };
 
   return (
-    <div style={{ background: 'var(--bg-secondary)', minHeight: 'calc(100vh - 80px)', padding: 'var(--spacing-2xl) var(--spacing-lg)' }}>
+    <div style={{ background: 'var(--bg-secondary)', minHeight: 'calc(100vh - 80px)', padding: 'var(--spacing-md) var(--spacing-lg)' }}>
       <Container>
         {/* Page Header */}
-        <div style={{ marginBottom: 'var(--spacing-2xl)' }}>
+        <div style={{ marginBottom: 'var(--spacing-md)' }}>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
             <FiUsers size={32} color="#6366f1" />
             Employee Management
@@ -166,125 +206,113 @@ function EmployeeManagement() {
           </Alert>
         )}
 
-        <Row className="g-4">
-          {/* Form Section - Left */}
-          <Col lg={8}>
-            <div id="employee-form" className="form-section">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-lg)' }}>
-                <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                  {selectedEmployee && selectedEmployee.id ? '✏️ Edit Employee' : '➕ Add New Employee'}
-                </h4>
-                {selectedEmployee && selectedEmployee.id && (
-                  <button
-                    className="btn btn-sm"
-                    onClick={handleCancelEdit}
-                    style={{
-                      background: 'var(--bg-tertiary)',
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--text-primary)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '6px 12px',
-                      cursor: 'pointer',
-                      fontSize: '0.875rem',
-                      transition: 'all var(--transition-base)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                    onMouseOver={(e) => {
-                      e.target.style.background = 'var(--bg-secondary)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.target.style.background = 'var(--bg-tertiary)';
-                    }}
-                  >
-                    <FiX size={16} /> Cancel
-                  </button>
-                )}
-              </div>
-              <EmployeeForm
-                onSubmit={handleFormSubmit}
-                initialData={selectedEmployee}
-                isLoading={isLoading}
-              />
-            </div>
-          </Col>
-
-          {/* Sidebar - Right */}
-          <Col lg={4}>
-            {/* Stats Card */}
-            <div className="form-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-lg)' }}>
+        {/* Row 2: Stats & Tips */}
+        <Row className="g-2" style={{ marginBottom: 'var(--spacing-2xl)' }}>
+          {/* Stats Card */}
+          <Col xs={12} sm={12} md={4} lg={4}>
+            <div className="form-section">
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: '8px', fontSize: '1rem' }}>
                 <FiTrendingUp size={20} color="#6366f1" />
                 Quick Stats
               </h4>
               <div style={{
-                padding: 'var(--spacing-lg)',
+                padding: '6px 10px',
                 background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid rgba(99, 102, 241, 0.2)'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>Total Employees</span>
-                  <span style={{ fontSize: '1.75rem', fontWeight: '700', color: '#6366f1' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '1.0125rem' }}>Total Employees</span>
+                  <span style={{ fontSize: '1.375rem', fontWeight: '700', color: '#6366f1' }}>
                     {employees.length}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>Filtered Results</span>
-                  <span style={{ fontSize: '1.75rem', fontWeight: '700', color: '#8b5cf6' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '1.0125rem' }}>Active</span>
+                  <span style={{ fontSize: '1.375rem', fontWeight: '700', color: '#6366f1' }}>
+                    {employees.filter(emp => emp.isActive).length}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '1.0125rem' }}>Inactive</span>
+                  <span style={{ fontSize: '1.375rem', fontWeight: '700', color: '#6366f1' }}>
+                    {employees.filter(emp => !emp.isActive).length}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '1.0125rem' }}>Filtered Results</span>
+                  <span style={{ fontSize: '1.375rem', fontWeight: '700', color: '#6366f1' }}>
                     {filteredEmployees.length}
                   </span>
                 </div>
               </div>
             </div>
+          </Col>
 
-            {/* Tips Card */}
+          {/* Tips Card */}
+          <Col xs={12} sm={12} md={8} lg={8}>
             <div className="form-section">
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-lg)' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: '8px' }}>
                 <FiInfo size={20} color="#6366f1" />
                 Tips & Shortcuts
               </h4>
-              <ul style={{
-                listStyle: 'none',
-                padding: 0,
-                margin: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--spacing-md)'
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '4px'
               }}>
                 {[
-                  { icon: '🔍', text: 'Use search to filter by name or email' },
-                  { icon: '✏️', text: 'Click Edit to update employee info' },
-                  { icon: '🗑️', text: 'Delete removes record permanently' },
-                  { icon: '⚠️', text: 'Confirm all actions before submitting' }
+                  { icon: '🔍', text: 'Search by name, email, role, department, phone or age' },
+                  { icon: '👤', text: 'Select a role from the dropdown (required)' },
+                  // { icon: '🔐', text: 'Set password for new employees' },
+                  { icon: '✓', text: 'Toggle Active/Inactive status for each employee' }
                 ].map((tip, idx) => (
-                  <li key={idx} style={{
+                  <div key={idx} style={{
                     display: 'flex',
-                    gap: 'var(--spacing-md)',
-                    padding: 'var(--spacing-md)',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    padding: '5px',
                     background: 'var(--bg-primary)',
                     borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border-light)',
-                    fontSize: '0.875rem',
+                    fontSize: '0.9125rem',
                     color: 'var(--text-secondary)'
                   }}>
                     <span style={{ fontSize: '1.125rem' }}>{tip.icon}</span>
-                    <span>{tip.text}</span>
-                  </li>
+                    <span style={{ lineHeight: '1.4' }}>{tip.text}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           </Col>
         </Row>
 
         {/* Search and Employee Table */}
-        <div style={{ marginTop: 'var(--spacing-2xl)' }}>
-          <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-lg)' }}>
-              <FiUsers size={20} color="#6366f1" />
-              Employee List
-            </h4>
+        <div style={{ marginTop: 'var(--spacing-md)' }}>
+          <div style={{ marginBottom: 'var(--spacing-md)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 0 }}>
+                <FiUsers size={20} color="#6366f1" />
+                Employee List
+              </h4>
+              <Button
+                variant="primary"
+                onClick={handleOpenCreateModal}
+                className="d-flex align-items-center gap-2"
+                style={{
+                  background: '#6366f1',
+                  border: 'none',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '8px 16px',
+                  fontSize: '0.9375rem',
+                  fontWeight: '500',
+                  transition: 'all var(--transition-base)'
+                }}
+              >
+                <FiPlus size={18} />
+                Create New Employee
+              </Button>
+            </div>
 
             {/* Search Box */}
             <InputGroup 
@@ -303,7 +331,7 @@ function EmployeeManagement() {
                 <FiSearch size={18} color="#6366f1" />
               </InputGroup.Text>
               <Form.Control
-                placeholder="Search by name or email..."
+                placeholder="Search by name, email, role, department, phone or age..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 disabled={isTableLoading}
@@ -346,12 +374,30 @@ function EmployeeManagement() {
           {/* Employees Table */}
           <EmployeeTable
             employees={filteredEmployees}
-            onEdit={handleEditEmployee}
+            onEdit={handleOpenEditModal}
             onDelete={handleDeleteEmployee}
             isLoading={isTableLoading}
             error={tableError}
+            onStatusChange={fetchEmployees}
           />
         </div>
+
+        {/* Form Modal */}
+        <Modal show={showFormModal} onHide={handleCancelEdit} size="lg" centered>
+          <Modal.Header closeButton>
+            <Modal.Title>
+              {selectedEmployee && selectedEmployee.id ? '✏️ Edit Employee' : '➕ Add New Employee'}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body style={{ background: 'var(--bg-secondary)' }}>
+            <EmployeeForm
+              onSubmit={handleFormSubmitModal}
+              initialData={selectedEmployee}
+              isLoading={isLoading}
+              roles={roles}
+            />
+          </Modal.Body>
+        </Modal>
       </Container>
     </div>
   );

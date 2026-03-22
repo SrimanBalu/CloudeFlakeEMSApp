@@ -1,23 +1,34 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Button, Alert } from 'react-bootstrap';
-import { FiMail, FiLock, FiArrowRight } from 'react-icons/fi';
+import { FiMail, FiLock, FiArrowRight, FiEye, FiEyeOff } from 'react-icons/fi';
 import { TiBusinessCard } from 'react-icons/ti';
+import { authAPI, handleApiError } from '../services/api';
 
 function Login({ onLogin }) {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const validateEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     // Validation
-    if (!username.trim()) {
-      setError('Username is required');
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address');
       return;
     }
 
@@ -26,22 +37,50 @@ function Login({ onLogin }) {
       return;
     }
 
-    // Hardcoded credentials
-    const ADMIN_USERNAME = 'admin';
-    const ADMIN_PASSWORD = '1234';
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
 
     setIsLoading(true);
 
-    // Simulate API call delay
-    setTimeout(() => {
-      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        onLogin(username);
-        navigate('/dashboard');
+    try {
+      // Call the backend login API
+      const response = await authAPI.login(email, password);
+
+      if (response.data.success) {
+        // Store the token and user info
+        authAPI.setToken(response.data.token);
+        const userData = response.data.data || response.data;
+        authAPI.setUser({
+          email: userData.email,
+          userId: userData.id || userData.userId,
+          name: userData.name,
+          roleName: userData.roleName,
+        });
+        
+        // console.log('User data stored:', {
+        //   email: userData.email,
+        //   userId: userData.id || userData.userId,
+        //   name: userData.name,
+        //   roleName: userData.roleName,
+        // });
+
+        // Call the onLogin callback
+        onLogin(email);
+
+        // Navigate to dashboard after a tick to allow state updates
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 0);
       } else {
-        setError('Invalid username or password');
+        setError(response.data.message || 'Login failed');
       }
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -58,7 +97,7 @@ function Login({ onLogin }) {
           }}>
             <TiBusinessCard size={32} color="#6366f1" />
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700', color: '#1f2937' }}>
-              EMS
+              CloudFlake EMS
             </h2>
           </div>
           <p style={{ color: '#6b7280', fontSize: '0.9375rem', margin: '8px 0 16px 0' }}>
@@ -68,9 +107,9 @@ function Login({ onLogin }) {
 
         {/* Error Alert */}
         {error && (
-          <Alert 
-            variant="danger" 
-            dismissible 
+          <Alert
+            variant="danger"
+            dismissible
             onClose={() => setError('')}
             style={{ marginBottom: '20px' }}
           >
@@ -83,24 +122,24 @@ function Login({ onLogin }) {
 
         {/* Form */}
         <Form onSubmit={handleSubmit}>
-          {/* Username */}
+          {/* Email */}
           <Form.Group className="mb-3">
-            <Form.Label>Username or Email</Form.Label>
+            <Form.Label>Email Address</Form.Label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <FiMail 
-                size={18} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '12px', 
+              <FiMail
+                size={18}
+                style={{
+                  position: 'absolute',
+                  left: '12px',
                   color: '#9ca3af',
                   pointerEvents: 'none'
-                }} 
+                }}
               />
               <Form.Control
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
                 autoFocus
                 style={{ paddingLeft: '40px' }}
@@ -112,23 +151,42 @@ function Login({ onLogin }) {
           <Form.Group className="mb-3">
             <Form.Label>Password</Form.Label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <FiLock 
-                size={18} 
-                style={{ 
-                  position: 'absolute', 
-                  left: '12px', 
+              <FiLock
+                size={18}
+                style={{
+                  position: 'absolute',
+                  left: '12px',
                   color: '#9ca3af',
                   pointerEvents: 'none'
-                }} 
+                }}
               />
               <Form.Control
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
-                style={{ paddingLeft: '40px' }}
+                style={{ paddingLeft: '40px', paddingRight: '40px' }}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  padding: '0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                disabled={isLoading}
+              >
+                {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+              </button>
             </div>
           </Form.Group>
 
@@ -154,32 +212,13 @@ function Login({ onLogin }) {
           </Button>
         </Form>
 
-        {/* Demo Credentials Info */}
-        <div style={{
-          background: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          padding: '12px 14px',
-          borderRadius: 'var(--radius-md)',
-          marginTop: '20px'
-        }}>
-          <p style={{ fontSize: '0.75rem', fontWeight: '600', color: '#0c2d6b', margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Demo Credentials
-          </p>
-          <div style={{ fontSize: '0.875rem', color: '#0c2d6b' }}>
-            <div style={{ marginBottom: '4px' }}>
-              <strong>Username:</strong> <code style={{ background: 'rgba(6,46,107,0.1)', padding: '2px 6px', borderRadius: '4px' }}>admin</code>
-            </div>
-            <div>
-              <strong>Password:</strong> <code style={{ background: 'rgba(6,46,107,0.1)', padding: '2px 6px', borderRadius: '4px' }}>1234</code>
-            </div>
-          </div>
-        </div>
+        {/* Demo Credentials Info removed */}
 
         {/* Footer */}
-        <p style={{ 
-          fontSize: '0.75rem', 
-          color: '#9ca3af', 
-          textAlign: 'center', 
+        <p style={{
+          fontSize: '0.75rem',
+          color: '#9ca3af',
+          textAlign: 'center',
           marginTop: '16px',
           marginBottom: 0
         }}>
