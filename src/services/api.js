@@ -100,6 +100,24 @@ export const employeeAPI = {
   },
 };
 
+// Dashboard APIs
+export const dashboardAPI = {
+  // Get employees grouped by role with count
+  getEmployeesByRole: () => {
+    return apiClient.get('/Dashboard/employees-by-role');
+  },
+
+  // Get employees grouped by year with count
+  getEmployeesByYear: () => {
+    return apiClient.get('/Dashboard/employees-by-year');
+  },
+
+  // Get dashboard statistics
+  getStats: () => {
+    return apiClient.get('/Dashboard/stats');
+  },
+};
+
 // Error handling utility
 export const handleApiError = (error) => {
   if (error.response) {
