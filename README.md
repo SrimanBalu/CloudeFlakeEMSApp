@@ -60,8 +60,8 @@ npm run build
 ## Usage
 
 ### Login Credentials (Demo)
-- **Username**: admin
-- **Password**: 1234
+- **Username**: sriman@gmail.com
+- **Password**: Sriram@123
 
 ### Pages Overview
 
